@@ -1,0 +1,30 @@
+---
+version: '3'
+networks:
+    proxy:
+        external: true
+services:
+    netdata:
+        image: netdata/netdata
+        hostname: netdata.mt.lan
+        restart: unless-stopped
+        cap_add: 
+            - SYS_PTRACE
+        security_opt: 
+            - apparmor:unconfined
+        environment:
+            - PGID=134
+        volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro     
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /etc/os-release:/host/etc/os-release:ro
+        networks:
+            - proxy
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.netdata.entryPoints=https"
+            - "traefik.http.routers.netdata.tls=true"
+            - "traefik.http.routers.netdata.rule=Host(`netdata.mt.lan`)"
+            - "traefik.http.services.netdata.loadBalancer.server.port=19999"

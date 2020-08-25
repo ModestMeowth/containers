@@ -1,0 +1,82 @@
+---
+version: '3'
+networks:
+    proxy:
+        external: true
+services: 
+    proxy:
+        image: traefik:v2.2
+        restart: unless-stopped
+        command:
+            - "--api"
+            - "--api.insecure=true"
+            - "--providers.docker=true"
+            - "--providers.docker.exposedByDefault=false"
+            - "--serversTransport.insecureSkipVerify=true"
+            - "--entryPoints.http.address=:80"
+            - "--entryPoints.https.address=:443"
+            - "--log=true"
+            - "--log.filePath=/var/log/traefik/traefik.log"
+        ports:
+            - 80:80
+            - 443:443
+            - 8080:8080
+        networks:
+            - proxy
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /srv/containers/config/traefik/:/etc/traefik
+            - /srv/containers/logs/traefik/:/var/log/traefik
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.proxyapi.rule=Host(`proxy.mt.lan`)"
+            - "traefik.http.services.proxyapi.loadBalancer.server.port=8080"
+    dns:
+        image: pihole/pihole:latest
+        restart: unless-stopped
+        dns:
+            - 127.0.0.1
+            - 1.1.1.1
+        environment:
+            - TZ=America/Chicago
+        ports:
+            - 53:53/tcp
+            - 53:53/udp
+        networks:
+            - proxy
+        volumes:
+            - /srv/containers/config/pihole/etc-pihole:/etc/pihole
+            - /srv/containers/config/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.pihole.rule=Host(`mt.lan`,`dns.mt.lan`)"
+            - "traefik.http.routers.pihole.entryPoints=http"
+            - "traefik.http.services.pihole.loadBalancer.server.port=80"
+        depends_on:
+            - proxy
+    unifi:
+        image: linuxserver/unifi-controller
+        restart: unless-stopped
+        environment:
+            - PUID=1000
+            - PGID=1000
+        ports:
+            - 3478:3478/udp
+            - 10001:10001/udp
+            - 1900:1900/udp
+        networks:
+            - proxy
+        volumes:
+            - /srv/containers/config/unifi:/config
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.unifi.rule=Host(`unifi.mt.lan`)"
+            - "traefik.http.routers.unifi.entryPoints=https"
+            - "traefik.http.routers.unifi.tls=true"
+            - "traefik.http.services.unifi.loadBalancer.server.port=8443"
+            - "traefik.http.services.unifi.loadBalancer.server.scheme=https"
+        depends_on:
+            - proxy

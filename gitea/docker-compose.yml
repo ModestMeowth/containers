@@ -1,0 +1,45 @@
+---
+version: '3'
+networks:
+    proxy:
+        external: true
+    gitea:
+        external: false
+services:
+    web:
+        image: gitea/gitea:latest
+        restart: unless-stopped
+        environment:
+            - DB_TYPE=postgres
+            - DB_HOST=db:5432
+            - DB_NAME=gitea
+            - DB_USER=gitea
+            - DB_PASSWD=gitea
+            - DOMAIN=git.mt.lan
+        networks:
+            - proxy
+            - gitea
+        ports:
+            - "2222:22"
+        volumes:
+            - /srv/containers/data/gitea:/data
+        depends_on:
+            - db
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.git.entryPoints=https"
+            - "traefik.http.routers.git.tls=true"
+            - "traefik.http.routers.git.rule=Host(`git.mt.lan`)"
+            - "traefik.http.services.git.loadBalancer.server.port=3000"
+    db:
+        image: postgres:latest
+        restart: unless-stopped
+        environment:
+            - POSTGRES_USER=gitea
+            - POSTGRES_PASSWORD=gitea
+            - POSTGRES_DB=gitea
+        networks:
+            - gitea
+        volumes:
+            - /srv/containers/data/postgres/gitea:/var/lib/postgresql/data
