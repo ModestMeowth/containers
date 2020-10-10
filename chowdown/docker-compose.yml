@@ -1,0 +1,22 @@
+version: '3'
+networks:
+    proxy:
+        external: true
+services:
+    chowdown:
+        image: jekyll/jekyll
+        restart: unless-stopped
+        container_name: chowdown
+        command: jekyll server --force_polling
+        volumes:
+            - /srv/containers/config/chowdown:/srv/jekyll/_components
+            - /srv/containers/data/chowdown/_images:/srv/jekyll/_images
+            - /srv/containers/data/chowdown/_posts/srv/jekyll/_posts
+            - /srv/containers/data/chowdown/_recipes:/srv/jekyll/_recipes
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.chowdown.entryPoints=https"
+            - "traefik.http.routers.chowdown.tls=true"
+            - "traefik.http.routers.chowdown.rule=Host(`chow.mt.lan`)"
+            - "traefik.http.services.chowdown.loadBalancer.server.port=4000"
